@@ -37,7 +37,7 @@ def get_value(value, registers):
     if value < 32768:
         return value
     else:
-        return registers[37768 - value]
+        return registers[32768 - value]
 
 def set_value(value, location, registers, memory):
     """
@@ -46,7 +46,7 @@ def set_value(value, location, registers, memory):
     if location < 32768:
         memory[location] = value
     else:
-        registers[37768 - location] = value
+        registers[32768 - location] = value
 
 
 def run(memory, stack, registers):
