@@ -57,7 +57,8 @@ def run(memory, stack, registers):
         num_params = param_lens[op]
         op_len = 1 + num_params
 
-        print('\n', op, registers)
+        #print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
+        #print("op:", memory[offset: offset + op_len])
         if op == 0:  # "0": Halt execution
             break
         elif op == 1:  # "1 a b": set register <a> to value of <b>
@@ -161,20 +162,20 @@ def run(memory, stack, registers):
             offset += op_len
         elif op == 15:  # "15 a b": read memory address <b> and write to <a>
             params = memory[offset + 1 : offset + 1 + num_params]
-            val_b = memory[params[1]]
+            val_b = get_value(params[1], registers)
             loc = params[0]
             set_value(val_b, loc, registers, memory)
             offset += op_len
-        elif op == 16:  # "16 a b": write memory address <b> and write to <a>
+        elif op == 16:  # "16 a b": read memory address <b> and write to <a>
             params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
-            memory[loc] = val_b
+            set_value(val_b, loc, registers, memory)
             offset += op_len
         elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
             next_offset = offset + op_len
             stack.append(next_offset)
-            new_offset = memory[offset + 1]
+            new_offset = get_value(memory[offset + 1], registers)
             offset = new_offset
         elif op == 18:  # "18": remove element from stack and jump to it (empty stack = halt)
             next_offset = stack.pop()
