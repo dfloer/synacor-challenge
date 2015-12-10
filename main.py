@@ -74,9 +74,9 @@ def run(memory, stack, registers):
             break
         elif op == 1:  # "1 a b": set register <a> to value of <b>
             params = memory[offset + 1 : offset + 1 + num_params]
-            reg = 32768 - params[0]
-            val_b = params[1]  # Is b a memory location, or a direct value? Treating as value.
-            registers[reg] = get_value(val_b, registers)
+            reg = params[0]
+            val_b = get_value(params[1], registers)
+            set_value(val_b, reg, registers, memory)
             offset += op_len
         elif op == 2:  # "2 a": push <a> onto stack.
             val_a = get_value(memory[offset + 1], registers)
