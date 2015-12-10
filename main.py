@@ -45,6 +45,7 @@ def set_value(value, location, registers, memory):
     Determines if location refers to a register or memory and sets it to value.
     """
     if location < 32768:
+        print("-----\nsetting memory loc:", location, "to:", value, "\n-----")
         memory[location] = value
     else:
         registers[location % 32768] = value
@@ -52,12 +53,12 @@ def set_value(value, location, registers, memory):
 
 def load_value(location, memory, registers):
     """
-    Returns the value from memory or registers given by location.
+    Returns the value from memory given by location. If the location points to a register, returns memory at that location.
     """
     if location < 32768:
         return memory[location]
     else:
-        return registers[location % 32768]
+        return memory[registers[location % 32768]]
 
 
 def run(memory, stack, registers):
@@ -172,13 +173,9 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 15:  # "15 a b": read memory address <b> and write it to <a>
-            print("\n\n\nrmem")
             params = memory[offset + 1 : offset + 1 + num_params]
-            print(params)
             dest = params[0]
-            #dest = get_value(params[0], registers)
             val_b = load_value(params[1], memory, registers)
-            print("dest:", dest, "b:", val_b, "\n\n")
             set_value(val_b, dest, registers, memory)
             offset += op_len
         elif op == 16:  # "16 a b": read memory address <b> and write to <a>
