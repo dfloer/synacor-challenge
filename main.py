@@ -68,8 +68,10 @@ def run(memory, stack, registers):
         num_params = param_lens[op]
         op_len = 1 + num_params
 
-        print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
-        print("op:", memory[offset: offset + op_len], "\n")
+        # print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
+        # print("op:", memory[offset: offset + op_len], "\n")
+        # if offset == 1518:
+        #     break
         if op == 0:  # "0": Halt execution
             break
         elif op == 1:  # "1 a b": set register <a> to value of <b>
@@ -186,16 +188,15 @@ def run(memory, stack, registers):
             set_value(val_b, loc, registers, memory)
             offset += op_len
         elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
+            params = memory[offset + 1 : offset + 1 + num_params]
             next_offset = offset + op_len
             stack.append(next_offset)
-            new_offset = get_value(memory[offset + 1], registers)
-            offset = new_offset
+            offset = get_value(params[0], registers)
         elif op == 18:  # "18": remove element from stack and jump to it (empty stack = halt)
-            # next_offset = stack.pop()
-            # offset = next_offset
-            offset += op_len
+            next_offset = stack.pop()
+            offset = next_offset
         elif op == 19:  # "19 a": writes the ascii code at <a> to terminal
-            value = memory[offset + 1]
+            value = get_value(memory[offset + 1], registers)
             print(chr(value), end='')
             offset += op_len
         elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
@@ -203,6 +204,8 @@ def run(memory, stack, registers):
             # char = ord(sys.stdin.read(1))
             # loc = params[0]
             # set_value(char, loc, registers, memory)
+            print("input")
+            break
             offset += op_len
         elif op == 21:  # "21": No op
             offset += op_len
