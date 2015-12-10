@@ -24,7 +24,7 @@ def load_memory(to_split):
     Loads the split values into memory.
     Returns the full memory array.
     """
-    memory = [None] * 32768
+    memory = [0] * 32768
     for idx in range(len(to_split)):
         memory[idx] = to_split[idx]
     return memory
@@ -43,10 +43,23 @@ def set_value(value, location, registers, memory):
     """
     Determines if location refers to a register or memory and sets it to value.
     """
+    print("value:", value, "location:", location)
     if location < 32768:
         memory[location] = value
+        print("set mem:", location)
     else:
-        registers[32768 - location] = value
+        registers[location % 32768] = value
+        print("set reg:", location % 32768)
+
+
+def load_value(location, memory, registers):
+    """
+    Returns the value from memory or registers given by location.
+    """
+    if location < 32768:
+        return memory[location]
+    else:
+        return registers[32768 - location]
 
 
 def run(memory, stack, registers):
@@ -57,8 +70,8 @@ def run(memory, stack, registers):
         num_params = param_lens[op]
         op_len = 1 + num_params
 
-        #print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
-        #print("op:", memory[offset: offset + op_len])
+        # print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
+        # print("op:", memory[offset: offset + op_len], "\n")
         if op == 0:  # "0": Halt execution
             break
         elif op == 1:  # "1 a b": set register <a> to value of <b>
@@ -160,17 +173,21 @@ def run(memory, stack, registers):
             res = 32767 - val_b
             set_value(res, loc, registers, memory)
             offset += op_len
-        elif op == 15:  # "15 a b": read memory address <b> and write to <a>
+        elif op == 15:  # "15 a b": read memory address <b> and write it to <a>
+            print("\n\n\nrmem")
             params = memory[offset + 1 : offset + 1 + num_params]
-            val_b = get_value(params[1], registers)
-            loc = params[0]
-            set_value(val_b, loc, registers, memory)
+            print(params)
+            dest = params[0]
+            #dest = get_value(params[0], registers)
+            val_b = load_value(params[1], memory, registers)
+            print("dest:", dest, "b:", val_b, "\n\n")
+            set_value(val_b, dest, registers, memory)
             offset += op_len
         elif op == 16:  # "16 a b": read memory address <b> and write to <a>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            set_value(val_b, loc, registers, memory)
+            # params = memory[offset + 1 : offset + 1 + num_params]
+            # loc = params[0]
+            # val_b = get_value(params[1], registers)
+            # set_value(val_b, loc, registers, memory)
             offset += op_len
         elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
             next_offset = offset + op_len
@@ -178,17 +195,18 @@ def run(memory, stack, registers):
             new_offset = get_value(memory[offset + 1], registers)
             offset = new_offset
         elif op == 18:  # "18": remove element from stack and jump to it (empty stack = halt)
-            next_offset = stack.pop()
-            offset = next_offset
+            # next_offset = stack.pop()
+            # offset = next_offset
+            offset += op_len
         elif op == 19:  # "19 a": writes the ascii code at <a> to terminal
             value = memory[offset + 1]
             print(chr(value), end='')
             offset += op_len
-        elif op == 20:  # "20 a": read ascii character from terminal into <a>. Might be able to read a whole line?
-            params = memory[offset + 1 : offset + 1 + num_params]
-            char = ord(sys.stdin.read(1))
-            loc = params[0]
-            set_value(char, loc, registers, memory)
+        elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
+            # params = memory[offset + 1 : offset + 1 + num_params]
+            # char = ord(sys.stdin.read(1))
+            # loc = params[0]
+            # set_value(char, loc, registers, memory)
             offset += op_len
         elif op == 21:  # "21": No op
             offset += op_len
