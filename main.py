@@ -200,12 +200,10 @@ def run(memory, stack, registers):
             print(chr(value), end='')
             offset += op_len
         elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
-            # params = memory[offset + 1 : offset + 1 + num_params]
-            # char = ord(sys.stdin.read(1))
-            # loc = params[0]
-            # set_value(char, loc, registers, memory)
-            print("input")
-            break
+            params = memory[offset + 1 : offset + 1 + num_params]
+            char = ord(sys.stdin.read(1))
+            loc = params[0]
+            set_value(char, loc, registers, memory)
             offset += op_len
         elif op == 21:  # "21": No op
             offset += op_len
