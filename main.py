@@ -56,6 +56,8 @@ def run(memory, stack, registers):
         op = memory[offset]
         num_params = param_lens[op]
         op_len = 1 + num_params
+
+        print('\n', op, registers)
         if op == 0:  # "0": Halt execution
             break
         elif op == 1:  # "1 a b": set register <a> to value of <b>
@@ -111,6 +113,7 @@ def run(memory, stack, registers):
                 new_offset = get_value(params[1], registers)
             offset = new_offset
         elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             val_c = get_value(params[2], registers)
@@ -118,6 +121,7 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             val_c = get_value(params[2], registers)
@@ -125,6 +129,7 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 11:  # "11 a b c": <a> = remainder <b> / <c>
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             val_c = get_value(params[2], registers)
@@ -132,6 +137,7 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 12:  # "12 a b c": <a> = <b> and <c>
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             val_c = get_value(params[2], registers)
@@ -139,6 +145,7 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 13:  # "13 a b c": <a> = <b> or <c>
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             val_c = get_value(params[2], registers)
@@ -146,17 +153,20 @@ def run(memory, stack, registers):
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 14:  # "14 a b": <a> = not <b> (bitwise inverse)
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             res = 32767 - val_b
             set_value(res, loc, registers, memory)
             offset += op_len
         elif op == 15:  # "15 a b": read memory address <b> and write to <a>
+            params = memory[offset + 1 : offset + 1 + num_params]
             val_b = memory[params[1]]
             loc = params[0]
             set_value(val_b, loc, registers, memory)
             offset += op_len
         elif op == 16:  # "16 a b": write memory address <b> and write to <a>
+            params = memory[offset + 1 : offset + 1 + num_params]
             loc = params[0]
             val_b = get_value(params[1], registers)
             memory[loc] = val_b
@@ -174,6 +184,7 @@ def run(memory, stack, registers):
             print(chr(value), end='')
             offset += op_len
         elif op == 20:  # "20 a": read ascii character from terminal into <a>. Might be able to read a whole line?
+            params = memory[offset + 1 : offset + 1 + num_params]
             char = ord(sys.stdin.read(1))
             loc = params[0]
             set_value(char, loc, registers, memory)
@@ -188,7 +199,7 @@ if __name__ == "__main__":
     file = read_file()
     split_input = split_file(file)
     memory = load_memory(split_input)
-    registers = [None] * 8
+    registers = [0] * 8
     stack = []
 
     run(memory, stack, registers)
