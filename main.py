@@ -1,5 +1,6 @@
 from struct import unpack
 import sys
+import json
 
 
 def read_file():
@@ -61,154 +62,211 @@ def load_value(location, memory, registers):
 
 
 def run(memory, stack, registers):
-    param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
     offset = 0
-    while True:
-        op = memory[offset]
-        num_params = param_lens[op]
-        op_len = 1 + num_params
+    debug = False
 
-        # print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
-        # print("op:", memory[offset: offset + op_len], "\n")
-        # if offset == 1518:
-        #     break
-        if op == 0:  # "0": Halt execution
-            break
-        elif op == 1:  # "1 a b": set register <a> to value of <b>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            reg = params[0]
-            val_b = get_value(params[1], registers)
-            set_value(val_b, reg, registers, memory)
-            offset += op_len
-        elif op == 2:  # "2 a": push <a> onto stack.
-            val_a = get_value(memory[offset + 1], registers)
-            stack.append(val_a)
-            offset += op_len
-        elif op == 3:  # "3 a": pop from stack into <a>, empty is error, assuming <a> is a memory location
-            val = stack.pop()
-            loc = memory[offset + 1]
-            set_value(val, loc, registers, memory)
-            offset += op_len
-        elif op == 4:  # "4 a b c": set <a> = 1 if <b> == <c>, set <a> = 0 otherwise
-            params = memory[offset + 1 : offset + 1 + num_params]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = 0
-            if val_b == val_c:
-                res = 1
-            loc = params[0]
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 5:  # "5 a b c": set <a> = 1 if <b> > <c>, set <a> = 0 otherwise
-            params = memory[offset + 1 : offset + 1 + num_params]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = 0
-            if val_b > val_c:
-                res = 1
-            loc = params[0]
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 6:  # "6 a": jump to memory location <a>
-            new_offset = memory[offset + 1]
-            offset = new_offset
-        elif op == 7:  # "7 a b": jump to <b> if <a> != 0
-            params = memory[offset + 1 : offset + 1 + num_params]
-            val_a = get_value(params[0], registers)
-            new_offset = offset + op_len
-            if val_a != 0:
-                new_offset = get_value(params[1], registers)
-            offset = new_offset
-        elif op == 8:  # "8 a b": jump to <b> if <a> == 0
-            params = memory[offset + 1 : offset + 1 + num_params]
-            val_a = get_value(params[0], registers)
-            new_offset = offset + op_len
-            if val_a == 0:
-                new_offset = get_value(params[1], registers)
-            offset = new_offset
-        elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = (val_b + val_c) % 32768
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = (val_b * val_c) % 32768
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 11:  # "11 a b c": <a> = remainder <b> / <c>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = val_b % val_c
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 12:  # "12 a b c": <a> = <b> and <c>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = val_b & val_c
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 13:  # "13 a b c": <a> = <b> or <c>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            val_c = get_value(params[2], registers)
-            res = val_b | val_c
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 14:  # "14 a b": <a> = not <b> (bitwise inverse)
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            val_b = get_value(params[1], registers)
-            res = 32767 - val_b
-            set_value(res, loc, registers, memory)
-            offset += op_len
-        elif op == 15:  # "15 a b": read memory address <b> and write it to <a>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            dest = params[0]
-            val_b = load_value(params[1], memory, registers)
-            set_value(val_b, dest, registers, memory)
-            offset += op_len
-        elif op == 16:  # "16 a b": read memory address <b> and write to <a>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            loc = params[0]
-            if loc > 32767:
-                loc = get_value(loc, registers)
-            val_b = get_value(params[1], registers)
-            set_value(val_b, loc, registers, memory)
-            offset += op_len
-        elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
-            params = memory[offset + 1 : offset + 1 + num_params]
-            next_offset = offset + op_len
-            stack.append(next_offset)
-            offset = get_value(params[0], registers)
-        elif op == 18:  # "18": remove element from stack and jump to it (empty stack = halt)
-            next_offset = stack.pop()
-            offset = next_offset
-        elif op == 19:  # "19 a": writes the ascii code at <a> to terminal
-            value = get_value(memory[offset + 1], registers)
-            print(chr(value), end='')
-            offset += op_len
-        elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
-            params = memory[offset + 1 : offset + 1 + num_params]
-            char = ord(sys.stdin.read(1))
-            loc = params[0]
-            set_value(char, loc, registers, memory)
-            offset += op_len
-        elif op == 21:  # "21": No op
-            offset += op_len
+    def serve_interrupt():
+        print("\n-----\nh: halt, m: dump memory, d: toggle debug, c: continue")
+        choice = sys.stdin.read(1)
+        if choice == 'h':
+            return True
+        elif choice == 'm':
+            state = save_state(memory, stack, registers, offset)
+            print_state(state)
+        elif choice == 'd':
+            nonlocal debug
+            debug = not debug
+            print("debug:", debug)
+        else:  # 'c' or any other char continues.
+            return False
+        return False
+
+    halt = False
+    while True:
+        while not halt:
+            try:
+                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug)
+            except KeyboardInterrupt:
+                halt = serve_interrupt()
+                break
+
+
+def run_inner(memory, stack, registers, offset, debug):
+    param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
+    halt = False
+    op = memory[offset]
+    num_params = param_lens[op]
+    op_len = 1 + num_params
+
+    if debug:
+        print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
+        print("op:", memory[offset: offset + op_len], "\n")
+    if op == 0:  # "0": Halt execution
+        halt = True
+    elif op == 1:  # "1 a b": set register <a> to value of <b>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        reg = params[0]
+        val_b = get_value(params[1], registers)
+        set_value(val_b, reg, registers, memory)
+        offset += op_len
+    elif op == 2:  # "2 a": push <a> onto stack.
+        val_a = get_value(memory[offset + 1], registers)
+        stack.append(val_a)
+        offset += op_len
+    elif op == 3:  # "3 a": pop from stack into <a>, empty is error, assuming <a> is a memory location
+        val = stack.pop()
+        loc = memory[offset + 1]
+        set_value(val, loc, registers, memory)
+        offset += op_len
+    elif op == 4:  # "4 a b c": set <a> = 1 if <b> == <c>, set <a> = 0 otherwise
+        params = memory[offset + 1 : offset + 1 + num_params]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = 0
+        if val_b == val_c:
+            res = 1
+        loc = params[0]
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 5:  # "5 a b c": set <a> = 1 if <b> > <c>, set <a> = 0 otherwise
+        params = memory[offset + 1 : offset + 1 + num_params]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = 0
+        if val_b > val_c:
+            res = 1
+        loc = params[0]
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 6:  # "6 a": jump to memory location <a>
+        new_offset = memory[offset + 1]
+        offset = new_offset
+    elif op == 7:  # "7 a b": jump to <b> if <a> != 0
+        params = memory[offset + 1 : offset + 1 + num_params]
+        val_a = get_value(params[0], registers)
+        new_offset = offset + op_len
+        if val_a != 0:
+            new_offset = get_value(params[1], registers)
+        offset = new_offset
+    elif op == 8:  # "8 a b": jump to <b> if <a> == 0
+        params = memory[offset + 1 : offset + 1 + num_params]
+        val_a = get_value(params[0], registers)
+        new_offset = offset + op_len
+        if val_a == 0:
+            new_offset = get_value(params[1], registers)
+        offset = new_offset
+    elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = (val_b + val_c) % 32768
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = (val_b * val_c) % 32768
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 11:  # "11 a b c": <a> = remainder <b> / <c>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = val_b % val_c
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 12:  # "12 a b c": <a> = <b> and <c>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = val_b & val_c
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 13:  # "13 a b c": <a> = <b> or <c>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        val_c = get_value(params[2], registers)
+        res = val_b | val_c
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 14:  # "14 a b": <a> = not <b> (bitwise inverse)
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        val_b = get_value(params[1], registers)
+        res = 32767 - val_b
+        set_value(res, loc, registers, memory)
+        offset += op_len
+    elif op == 15:  # "15 a b": read memory address <b> and write it to <a>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        dest = params[0]
+        val_b = load_value(params[1], memory, registers)
+        set_value(val_b, dest, registers, memory)
+        offset += op_len
+    elif op == 16:  # "16 a b": read memory address <b> and write to <a>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        loc = params[0]
+        if loc > 32767:
+            loc = get_value(loc, registers)
+        val_b = get_value(params[1], registers)
+        set_value(val_b, loc, registers, memory)
+        offset += op_len
+    elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
+        params = memory[offset + 1 : offset + 1 + num_params]
+        next_offset = offset + op_len
+        stack.append(next_offset)
+        offset = get_value(params[0], registers)
+    elif op == 18:  # "18": remove element from stack and jump to it (empty stack = halt)
+        next_offset = stack.pop()
+        offset = next_offset
+    elif op == 19:  # "19 a": writes the ascii code at <a> to terminal
+        value = get_value(memory[offset + 1], registers)
+        print(chr(value), end='')
+        offset += op_len
+    elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
+        params = memory[offset + 1 : offset + 1 + num_params]
+        char = ord(sys.stdin.read(1))
+        loc = params[0]
+        set_value(char, loc, registers, memory)
+        offset += op_len
+    elif op == 21:  # "21": No op
+        offset += op_len
+    else:
+        halt = True
+    return halt, memory, stack, registers, offset
+
+
+def save_state(memory, stack, registers, offset):
+    """
+    Dumps the machine state into JSON for reloading later.
+    """
+    output = {}
+    output['memory'] = memory
+    output['stack'] = stack
+    output['registers'] = registers
+    output['offset'] = offset
+    return output
+
+
+def print_state(state):
+    """
+    Takes a state dict and prints it nicely.
+    """
+    print("offset:", state['offset'], "\n\nstack:", state['stack'], "\n\nregisters:", state['registers'], "\n\nmemory:")
+    s = ''
+    for c in state['memory']:
+        if c in [11, 12, 13, 14, 15]:
+            s += chr(c)
+        elif c >= 0x20:
+            s += chr(c)
         else:
-            break
+            s += "\\" + hex(c)
+    print(s)
 
 
 if __name__ == "__main__":
