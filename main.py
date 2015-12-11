@@ -3,6 +3,10 @@ import sys
 import json
 
 
+op_table = {0: 'halt', 1: 'set', 2: 'push', 3: 'pop', 4: 'eq', 5: 'gt',6 : 'jmp', 7: 'jt', 8: 'jf', 9: 'add', 10: 'mult', 11: 'mod', 12: 'and', 13: 'or', 14: 'not', 15: 'rmem', 16: 'wmem', 17: 'call', 18: 'ret', 19: 'out', 20: 'in', 21: 'noop'}
+param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
+
+
 def read_file():
     """
     Opens and reads the input file.
@@ -61,6 +65,29 @@ def load_value(location, memory, registers):
         return memory[registers[location % 32768]]
 
 
+def disassemble():
+    """
+    Writes the disassembly to disassembly.txt
+    """
+    init = split_file(read_file())
+    addr = 0
+    with open('disassembly.txt', 'w') as f:
+        while addr != len(init):
+            op = init[addr]
+            if op > 21:
+                op_name = 'data'
+                num_params = 1
+            else:
+                op_name = op_table[op]
+                num_params = param_lens[op]
+            op_len = 1 + num_params
+            data = [str(init[x]) for x in range(addr, addr + op_len)]
+            if op == 19:
+                data[-1] = chr(int(data[-1]))
+            print("offset:", addr, "-", op_name, ' '.join(data), file=f)
+            addr += op_len
+
+
 def run(memory, stack, registers, offset, special):
     #offset = 0
     debug = False
@@ -117,7 +144,6 @@ def run(memory, stack, registers, offset, special):
 
 
 def run_inner(memory, stack, registers, offset, debug, tamper, special):
-    param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
     halt = False
     op = memory[offset]
     num_params = param_lens[op]
