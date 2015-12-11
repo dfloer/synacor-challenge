@@ -64,10 +64,12 @@ def load_value(location, memory, registers):
 def run(memory, stack, registers):
     offset = 0
     debug = False
+    tamper = False
 
     def serve_interrupt():
-        print("\n-----\nh: halt, m: dump memory, d: toggle debug, r: set value to r8, c: continue")
-        choice = sys.stdin.read(1)
+        print("\n-----\nh: halt, m: dump memory, d: toggle debug, r: set value to r8, c: continue\n"
+              "t: toggle teleport tamper")
+        choice = sys.stdin.read(2).rstrip()
         if choice == 'h':
             return True
         elif choice == 'm':
@@ -83,8 +85,13 @@ def run(memory, stack, registers):
             value = int(''.join([x.rstrip() for x in raw]))
             print("setting reg8 to:", value)
             registers[7] = value
+        elif choice == 't':
+            nonlocal tamper
+            tamper = not tamper
+            print("tamper:", tamper)
         else:  # 'c' or any other char continues.
-            return False
+            pass
+        print("\n-----")
         return False
 
     halt = False
