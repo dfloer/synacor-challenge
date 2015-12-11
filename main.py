@@ -61,14 +61,16 @@ def load_value(location, memory, registers):
         return memory[registers[location % 32768]]
 
 
-def run(memory, stack, registers):
-    offset = 0
+def run(memory, stack, registers, offset, special):
+    #offset = 0
     debug = False
     tamper = False
+    if special:
+        tamper = True
 
     def serve_interrupt():
         print("\n-----\nh: halt, m: dump memory, d: toggle debug, r: set value to r8, c: continue\n"
-              "t: toggle teleport tamper")
+              "t: toggle teleport tamper, x: checkpoint current program state")
         choice = sys.stdin.read(2).rstrip()
         if choice == 'h':
             return True
@@ -89,6 +91,11 @@ def run(memory, stack, registers):
             nonlocal tamper
             tamper = not tamper
             print("tamper:", tamper)
+        elif choice == 'x':
+            state = save_state(memory, stack, registers, offset)
+            with open('checkpoint.json', 'w') as f:
+                print(json.dumps(state), file=f)
+            print("current state checkpointed.")
         else:  # 'c' or any other char continues.
             pass
         print("\n-----")
@@ -98,15 +105,18 @@ def run(memory, stack, registers):
     while True:
         while not halt:
             try:
-                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper)
+                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper, special)
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
+            if len(stack) > 300:
+                print("killed")
+                halt = True
         if halt:
             break
 
 
-def run_inner(memory, stack, registers, offset, debug, tamper):
+def run_inner(memory, stack, registers, offset, debug, tamper, special):
     param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
     halt = False
     op = memory[offset]
@@ -174,6 +184,8 @@ def run_inner(memory, stack, registers, offset, debug, tamper):
         # Tamper with the teleporter's checks.
         if params == [32775, 5605] and tamper:
             offset += op_len
+            if special:
+                registers[7] = special
             print("Teleport jump not taken.")
         else:
             offset = new_offset
@@ -256,6 +268,10 @@ def run_inner(memory, stack, registers, offset, debug, tamper):
         loc = params[0]
         set_value(char, loc, registers, memory)
         offset += op_len
+        if char == 10:
+            pass
+            # print("10!")
+            # raise KeyboardInterrupt
     elif op == 21:  # "21": No op
         offset += op_len
     else:
@@ -273,6 +289,12 @@ def save_state(memory, stack, registers, offset):
     output['registers'] = registers
     output['offset'] = offset
     return output
+
+
+def load_state():
+    with open('checkpoint.json', 'r') as f:
+        data = json.load(f)
+    return data
 
 
 def print_state(state):
@@ -298,4 +320,19 @@ if __name__ == "__main__":
     registers = [0] * 8
     stack = []
 
-    run(memory, stack, registers)
+    offset = 0
+    state = load_state()
+    memory = state['memory']
+    stack = state['stack']
+    registers = state['registers']
+    offset = state['offset']
+    run(memory, stack, registers, offset, 0)
+    #run(memory, stack, registers)
+    # for x in range(1, 32768):
+    #     print(x)
+        # state = load_state()
+        # memory = state['memory']
+        # stack = state['stack']
+        # registers = state['registers']
+        # offset = state['offset']
+        # run(memory, stack, registers, offset, x)
