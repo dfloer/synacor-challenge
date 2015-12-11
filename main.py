@@ -98,7 +98,7 @@ def run(memory, stack, registers):
     while True:
         while not halt:
             try:
-                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug)
+                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper)
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
@@ -106,7 +106,7 @@ def run(memory, stack, registers):
             break
 
 
-def run_inner(memory, stack, registers, offset, debug):
+def run_inner(memory, stack, registers, offset, debug, tamper):
     param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
     halt = False
     op = memory[offset]
@@ -171,7 +171,12 @@ def run_inner(memory, stack, registers, offset, debug):
         new_offset = offset + op_len
         if val_a == 0:
             new_offset = get_value(params[1], registers)
-        offset = new_offset
+        # Tamper with the teleporter's checks.
+        if params == [32775, 5605] and tamper:
+            offset += op_len
+            print("Teleport jump not taken.")
+        else:
+            offset = new_offset
     elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
         params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
