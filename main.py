@@ -66,7 +66,7 @@ def run(memory, stack, registers):
     debug = False
 
     def serve_interrupt():
-        print("\n-----\nh: halt, m: dump memory, d: toggle debug, c: continue")
+        print("\n-----\nh: halt, m: dump memory, d: toggle debug, r: set value to r8, c: continue")
         choice = sys.stdin.read(1)
         if choice == 'h':
             return True
@@ -77,6 +77,12 @@ def run(memory, stack, registers):
             nonlocal debug
             debug = not debug
             print("debug:", debug)
+        elif choice == 'r':
+            print("value? (current:", registers[7], "):")
+            raw = sys.stdin.readlines(1)
+            value = int(''.join([x.rstrip() for x in raw]))
+            print("setting reg8 to:", value)
+            registers[7] = value
         else:  # 'c' or any other char continues.
             return False
         return False
@@ -89,6 +95,8 @@ def run(memory, stack, registers):
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
+        if halt:
+            break
 
 
 def run_inner(memory, stack, registers, offset, debug):
@@ -99,8 +107,10 @@ def run_inner(memory, stack, registers, offset, debug):
     op_len = 1 + num_params
 
     if debug:
-        print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack)
-        print("op:", memory[offset: offset + op_len], "\n")
+        with open('debug.log', 'a') as logfile:
+            print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
+            print("op:", memory[offset: offset + op_len], "\n", file=logfile)
+
     if op == 0:  # "0": Halt execution
         halt = True
     elif op == 1:  # "1 a b": set register <a> to value of <b>
