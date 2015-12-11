@@ -76,7 +76,7 @@ def disassemble():
             op = init[addr]
             if op > 21:
                 op_name = 'data'
-                num_params = 1
+                num_params = 0
             else:
                 op_name = op_table[op]
                 num_params = param_lens[op]
