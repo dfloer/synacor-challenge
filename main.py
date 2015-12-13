@@ -148,11 +148,8 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
     op = memory[offset]
     num_params = param_lens[op]
     op_len = 1 + num_params
+    print_char = ''
 
-    if debug:
-        with open('debug.log', 'a') as logfile:
-            print('|', "offset:", offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
-            print("op:", memory[offset: offset + op_len], "\n", file=logfile)
 
     if op == 0:  # "0": Halt execution
         halt = True
@@ -200,6 +197,12 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         new_offset = offset + op_len
         if val_a != 0:
             new_offset = get_value(params[1], registers)
+        if tamper and offset == 6027:
+            print(registers)
+            new_offset = 6030
+            registers[1] = 5
+            registers[7] = 25734
+            print("Teleport check skipped.")
         offset = new_offset
     elif op == 8:  # "8 a b": jump to <b> if <a> == 0
         params = memory[offset + 1 : offset + 1 + num_params]
@@ -207,14 +210,7 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         new_offset = offset + op_len
         if val_a == 0:
             new_offset = get_value(params[1], registers)
-        # Tamper with the teleporter's checks.
-        if params == [32775, 5605] and tamper:
-            offset += op_len
-            if special:
-                registers[7] = special
-            print("Teleport jump not taken.")
-        else:
-            offset = new_offset
+        offset = new_offset
     elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
         params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
@@ -222,6 +218,8 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         val_c = get_value(params[2], registers)
         res = (val_b + val_c) % 32768
         set_value(res, loc, registers, memory)
+        # if tamper and offset == 6030:
+        #     registers[7] = 25734
         offset += op_len
     elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
         params = memory[offset + 1 : offset + 1 + num_params]
@@ -302,6 +300,11 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         offset += op_len
     else:
         halt = True
+
+    if debug:
+        with open('debug.log', 'a') as logfile:
+            print(print_char, '|', "offset:", offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
+            print("op:", memory[offset: offset + op_len], "\n", file=logfile)
     return halt, memory, stack, registers, offset
 
 
