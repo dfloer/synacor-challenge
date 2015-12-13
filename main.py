@@ -218,8 +218,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         val_c = get_value(params[2], registers)
         res = (val_b + val_c) % 32768
         set_value(res, loc, registers, memory)
-        # if tamper and offset == 6030:
-        #     registers[7] = 25734
         offset += op_len
     elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
         params = memory[offset + 1 : offset + 1 + num_params]
@@ -292,10 +290,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         loc = params[0]
         set_value(char, loc, registers, memory)
         offset += op_len
-        if char == 10:
-            pass
-            # print("10!")
-            # raise KeyboardInterrupt
     elif op == 21:  # "21": No op
         offset += op_len
     else:
@@ -320,8 +314,8 @@ def save_state(memory, stack, registers, offset):
     return output
 
 
-def load_state():
-    with open('checkpoint.json', 'r') as f:
+def load_state(infile='checkpoint.json'):
+    with open(infile, 'r') as f:
         data = json.load(f)
     return data
 
@@ -350,7 +344,7 @@ if __name__ == "__main__":
     stack = []
 
     offset = 0
-    state = load_state()
+    state = load_state('checkpoint_pre-teleport.json')
     memory = state['memory']
     stack = state['stack']
     registers = state['registers']
