@@ -176,6 +176,10 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         if val_b == val_c:
             res = 1
         loc = params[0]
+        if offset == 4553:
+            print("\noff: 4553 -", val_b, "==", val_c, ":=", res, "->", loc)
+            res = 1
+            # registers[0] = 30
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 5:  # "5 a b c": set <a> = 1 if <b> > <c>, set <a> = 0 otherwise
@@ -283,6 +287,7 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
     elif op == 19:  # "19 a": writes the ascii code at <a> to terminal
         value = get_value(memory[offset + 1], registers)
         print(chr(value), end='')
+        print_char = chr(value)
         offset += op_len
     elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
         params = memory[offset + 1 : offset + 1 + num_params]
@@ -344,11 +349,11 @@ if __name__ == "__main__":
     stack = []
 
     offset = 0
-    state = load_state('checkpoint_pre-teleport.json')
-    memory = state['memory']
-    stack = state['stack']
-    registers = state['registers']
-    offset = state['offset']
+    # state = load_state('checkpoint_antechamber.json')
+    # memory = state['memory']
+    # stack = state['stack']
+    # registers = state['registers']
+    # offset = state['offset']
     run(memory, stack, registers, offset, 0)
     #run(memory, stack, registers)
     # for x in range(1, 32768):
