@@ -88,41 +88,43 @@ def disassemble():
             addr += op_len
 
 
-def run(memory, stack, registers, offset, special):
-    #offset = 0
+def run(memory, stack, registers, offset):
     debug = False
     tamper = False
-    if special:
-        tamper = True
-
+    breakpoint = -1
     def serve_interrupt():
-        print("\n-----\nh: halt, m: dump memory, d: toggle debug, r: set value to r8, c: continue\n"
-              "t: toggle teleport tamper, x: checkpoint current program state")
+        if breakpoint:
+            print("Breakpoint hit at:", breakpoint)
+        print("\n-----\nh: halt, m: dump memory, d: toggle debug, c: continue, t: toggle teleport tamper,\n"
+              "x: checkpoint current program state, s: dump reg/stack, b: set breakpoint at offset")
         choice = sys.stdin.read(2).rstrip()
         if choice == 'h':
             return True
         elif choice == 'm':
             state = save_state(memory, stack, registers, offset)
             print_state(state)
+        elif choice == 's':
+            state = save_state(memory, stack, registers, offset)
+            print("registers:", state['registers'], ",stack:", state['stack'])
         elif choice == 'd':
             nonlocal debug
             debug = not debug
             print("debug:", debug)
-        elif choice == 'r':
-            print("value? (current:", registers[7], "):")
-            raw = sys.stdin.readlines(1)
-            value = int(''.join([x.rstrip() for x in raw]))
-            print("setting reg8 to:", value)
-            registers[7] = value
         elif choice == 't':
             nonlocal tamper
             tamper = not tamper
             print("tamper:", tamper)
+            registers[7] = 5
         elif choice == 'x':
             state = save_state(memory, stack, registers, offset)
             with open('checkpoint.json', 'w') as f:
                 print(json.dumps(state), file=f)
             print("current state checkpointed.")
+        if choice == 'b':
+            print("value? (current:", breakpoint, "):")
+            raw = sys.stdin.readlines(1)
+            value = int(''.join([x.rstrip() for x in raw]))
+            print("setting breakpoint at:", value)
         else:  # 'c' or any other char continues.
             pass
         print("\n-----")
@@ -132,7 +134,7 @@ def run(memory, stack, registers, offset, special):
     while True:
         while not halt:
             try:
-                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper, special)
+                halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper, breakpoint)
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
@@ -143,18 +145,21 @@ def run(memory, stack, registers, offset, special):
             break
 
 
-def run_inner(memory, stack, registers, offset, debug, tamper, special):
+def run_inner(memory, stack, registers, offset, debug, tamper, breakpoint):
     halt = False
     op = memory[offset]
     num_params = param_lens[op]
     op_len = 1 + num_params
     print_char = ''
+    params = memory[offset + 1 : offset + 1 + num_params]
+    start_offset = offset
 
+    if breakpoint == offset:
+        raise KeyboardInterrupt
 
     if op == 0:  # "0": Halt execution
         halt = True
     elif op == 1:  # "1 a b": set register <a> to value of <b>
-        params = memory[offset + 1 : offset + 1 + num_params]
         reg = params[0]
         val_b = get_value(params[1], registers)
         set_value(val_b, reg, registers, memory)
@@ -169,21 +174,15 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(val, loc, registers, memory)
         offset += op_len
     elif op == 4:  # "4 a b c": set <a> = 1 if <b> == <c>, set <a> = 0 otherwise
-        params = memory[offset + 1 : offset + 1 + num_params]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
         res = 0
         if val_b == val_c:
             res = 1
         loc = params[0]
-        if offset == 4553:
-            print("\noff: 4553 -", val_b, "==", val_c, ":=", res, "->", loc)
-            res = 1
-            # registers[0] = 30
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 5:  # "5 a b c": set <a> = 1 if <b> > <c>, set <a> = 0 otherwise
-        params = memory[offset + 1 : offset + 1 + num_params]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
         res = 0
@@ -196,27 +195,23 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         new_offset = memory[offset + 1]
         offset = new_offset
     elif op == 7:  # "7 a b": jump to <b> if <a> != 0
-        params = memory[offset + 1 : offset + 1 + num_params]
         val_a = get_value(params[0], registers)
         new_offset = offset + op_len
         if val_a != 0:
             new_offset = get_value(params[1], registers)
         if tamper and offset == 6027:
-            print(registers)
             new_offset = 6030
             registers[1] = 5
             registers[7] = 25734
             print("Teleport check skipped.")
         offset = new_offset
     elif op == 8:  # "8 a b": jump to <b> if <a> == 0
-        params = memory[offset + 1 : offset + 1 + num_params]
         val_a = get_value(params[0], registers)
         new_offset = offset + op_len
         if val_a == 0:
             new_offset = get_value(params[1], registers)
         offset = new_offset
     elif op == 9:  # "9 a b c": <a> = <b> + <c>, % 32768
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
@@ -224,7 +219,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 10:  # "10 a b c": <a> = <b> * <c>, % 32768
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
@@ -232,7 +226,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 11:  # "11 a b c": <a> = remainder <b> / <c>
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
@@ -240,7 +233,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 12:  # "12 a b c": <a> = <b> and <c>
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
@@ -248,7 +240,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 13:  # "13 a b c": <a> = <b> or <c>
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         val_c = get_value(params[2], registers)
@@ -256,20 +247,17 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 14:  # "14 a b": <a> = not <b> (bitwise inverse)
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         val_b = get_value(params[1], registers)
         res = 32767 - val_b
         set_value(res, loc, registers, memory)
         offset += op_len
     elif op == 15:  # "15 a b": read memory address <b> and write it to <a>
-        params = memory[offset + 1 : offset + 1 + num_params]
         dest = params[0]
         val_b = load_value(params[1], memory, registers)
         set_value(val_b, dest, registers, memory)
         offset += op_len
     elif op == 16:  # "16 a b": read memory address <b> and write to <a>
-        params = memory[offset + 1 : offset + 1 + num_params]
         loc = params[0]
         if loc > 32767:
             loc = get_value(loc, registers)
@@ -277,7 +265,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         set_value(val_b, loc, registers, memory)
         offset += op_len
     elif op == 17:  # "17 a": Write address of next instruction to stack and jump to memory location <a>
-        params = memory[offset + 1 : offset + 1 + num_params]
         next_offset = offset + op_len
         stack.append(next_offset)
         offset = get_value(params[0], registers)
@@ -290,7 +277,6 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
         print_char = chr(value)
         offset += op_len
     elif op == 20:  # "20 a": read ascii character from terminal into <a>. Probably strung together ops to read a whole line.
-        params = memory[offset + 1 : offset + 1 + num_params]
         char = ord(sys.stdin.read(1))
         loc = params[0]
         set_value(char, loc, registers, memory)
@@ -302,8 +288,9 @@ def run_inner(memory, stack, registers, offset, debug, tamper, special):
 
     if debug:
         with open('debug.log', 'a') as logfile:
-            print(print_char, '|', "offset:", offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
-            print("op:", memory[offset: offset + op_len], "\n", file=logfile)
+            nice_params = ' '.join([str(x) for x in params])
+            print(print_char, '|', "offset:", start_offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
+            print("op:", op_table[op], nice_params, "\n", file=logfile)
     return halt, memory, stack, registers, offset
 
 
@@ -349,18 +336,9 @@ if __name__ == "__main__":
     stack = []
 
     offset = 0
-    # state = load_state('checkpoint_antechamber.json')
+    # state = load_state('checkpoint.json')
     # memory = state['memory']
     # stack = state['stack']
     # registers = state['registers']
     # offset = state['offset']
-    run(memory, stack, registers, offset, 0)
-    #run(memory, stack, registers)
-    # for x in range(1, 32768):
-    #     print(x)
-        # state = load_state()
-        # memory = state['memory']
-        # stack = state['stack']
-        # registers = state['registers']
-        # offset = state['offset']
-        # run(memory, stack, registers, offset, x)
+    run(memory, stack, registers, offset)
