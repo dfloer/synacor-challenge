@@ -2,7 +2,6 @@ from struct import unpack
 import sys
 import json
 import argparse
-import os.path
 
 op_table = {0: 'halt', 1: 'set', 2: 'push', 3: 'pop', 4: 'eq', 5: 'gt',6 : 'jmp', 7: 'jt', 8: 'jf', 9: 'add', 10: 'mult', 11: 'mod', 12: 'and', 13: 'or', 14: 'not', 15: 'rmem', 16: 'wmem', 17: 'call', 18: 'ret', 19: 'out', 20: 'in', 21: 'noop'}
 param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
@@ -18,6 +17,9 @@ def read_file(infile):
 
 
 def split_file(raw_file):
+    """
+    Splits the input file into uint16 pieces.
+    """
     output = []
     for idx in range(0, len(raw_file), 2):
         val = unpack('<H', raw_file[idx : idx + 2])
@@ -90,11 +92,21 @@ def disassemble(infile, outfile):
 
 
 def run(memory, stack, registers, offset, debug_file):
+    """
+    Handles VM execution with execution loop.
+    """
     debug = False
     tamper = False
     breakpoint = -1
 
     def serve_interrupt():
+        """
+        Little console that pops up when ctrl+c is hit.
+        Allows halting the program 'h', toggling debug logging on and off 'd', continuing execution 'c',
+        tampering with the teleporter (for code 7) 't', checkpointing the current program state 'x',
+        dumping the whole current memory to stdout 'm' or just registers and stack 's',
+        and setting a breakpoint 'b'.
+        """
         if breakpoint:
             print("Breakpoint hit at:", breakpoint)
         print("\n-----\nh: halt, m: dump memory, d: toggle debug, c: continue, t: toggle teleport tamper,\n"
@@ -137,6 +149,7 @@ def run(memory, stack, registers, offset, debug_file):
         while not halt:
             try:
                 halt, memory, stack, registers, offset = run_inner(memory, stack, registers, offset, debug, tamper, breakpoint)
+            # Catch the keyboard interrupt for ctrl + c
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
@@ -148,6 +161,9 @@ def run(memory, stack, registers, offset, debug_file):
 
 
 def run_inner(memory, stack, registers, offset, debug, tamper, breakpoint):
+    """
+    Takes care of running the VM for on 'tic', and makes debug output if needed.
+    """
     halt = False
     op = memory[offset]
     num_params = param_lens[op]
