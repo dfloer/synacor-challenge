@@ -153,9 +153,6 @@ def run(memory, stack, registers, offset, debug_file):
             except KeyboardInterrupt:
                 halt = serve_interrupt()
                 break
-            if len(stack) > 300:
-                print("killed")
-                halt = True
         if halt:
             break
 
