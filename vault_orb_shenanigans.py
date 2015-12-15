@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 room_grid =\
     [
         ['*', '8', '-', '1'],

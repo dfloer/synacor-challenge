@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from struct import unpack
 import sys
 import json
