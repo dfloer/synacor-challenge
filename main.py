@@ -1,18 +1,19 @@
 from struct import unpack
 import sys
 import json
-
+import argparse
+import os.path
 
 op_table = {0: 'halt', 1: 'set', 2: 'push', 3: 'pop', 4: 'eq', 5: 'gt',6 : 'jmp', 7: 'jt', 8: 'jf', 9: 'add', 10: 'mult', 11: 'mod', 12: 'and', 13: 'or', 14: 'not', 15: 'rmem', 16: 'wmem', 17: 'call', 18: 'ret', 19: 'out', 20: 'in', 21: 'noop'}
 param_lens = [0, 2, 1, 1, 3, 3, 1, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 1, 0, 1, 1, 0]
 
 
-def read_file():
+def read_file(infile):
     """
     Opens and reads the input file.
     Returns the binary data from the file.
     """
-    with open('challenge.bin', 'rb') as f:
+    with open(infile, 'rb') as f:
         return f.read()
 
 
@@ -65,13 +66,13 @@ def load_value(location, memory, registers):
         return memory[registers[location % 32768]]
 
 
-def disassemble():
+def disassemble(infile, outfile):
     """
-    Writes the disassembly to disassembly.txt
+    Writes the disassembly generated from input file to output file.
     """
-    init = split_file(read_file())
+    init = split_file(read_file(infile))
     addr = 0
-    with open('disassembly.txt', 'w') as f:
+    with open(outfile, 'w') as f:
         while addr != len(init):
             op = init[addr]
             if op > 21:
@@ -88,10 +89,11 @@ def disassemble():
             addr += op_len
 
 
-def run(memory, stack, registers, offset):
+def run(memory, stack, registers, offset, debug_file):
     debug = False
     tamper = False
     breakpoint = -1
+
     def serve_interrupt():
         if breakpoint:
             print("Breakpoint hit at:", breakpoint)
@@ -287,7 +289,7 @@ def run_inner(memory, stack, registers, offset, debug, tamper, breakpoint):
         halt = True
 
     if debug:
-        with open('debug.log', 'a') as logfile:
+        with open(debug_file, 'a') as logfile:
             nice_params = ' '.join([str(x) for x in params])
             print(print_char, '|', "offset:", start_offset, "\nregs:", registers, "\nstack:", stack, file=logfile)
             print("op:", op_table[op], nice_params, "\n", file=logfile)
@@ -328,17 +330,43 @@ def print_state(state):
     print(s)
 
 
+def parse_command_line():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', dest="input_file", help="Input (challenge).bin", metavar="INFILE", required=True)
+    parser.add_argument('-x', '--checkpoint', dest="checkpoint_file", help="Input checkpoint .json", metavar="CHECKPOINT", required=False)
+    parser.add_argument('-d', '--debug', dest="debug_file", help="Debug file to append", metavar="DEBUG", required=False)
+    parser.add_argument('-a', '--disassemble', dest="disassembly_file", help="Disassembly file to write", metavar="FILE", required=False)
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == "__main__":
-    file = read_file()
+    options = parse_command_line()
+    input_file = options.input_file
+    checkpoint = options.checkpoint_file
+    debug_file = options.debug_file
+    disassembly_file = options.disassembly_file
+
+    file = read_file(input_file)
     split_input = split_file(file)
     memory = load_memory(split_input)
     registers = [0] * 8
     stack = []
-
     offset = 0
-    # state = load_state('checkpoint.json')
-    # memory = state['memory']
-    # stack = state['stack']
-    # registers = state['registers']
-    # offset = state['offset']
-    run(memory, stack, registers, offset)
+
+    if not debug_file:
+        # Default debug file saved in same dir VM is run from.
+        debug_file = "debug.txt"
+
+    if checkpoint:
+        state = load_state(checkpoint)
+        memory = state['memory']
+        stack = state['stack']
+        registers = state['registers']
+        offset = state['offset']
+
+    if disassembly_file:
+        disassemble(input_file, disassembly_file)
+        print(input_file, "disassembled to:", disassembly_file)
+    else:
+        run(memory, stack, registers, offset, debug_file)
